@@ -1,0 +1,40 @@
+# /etc/systemd/system/triagem-bitrix-certidoes.service
+# PROPOSTA (Frente H/H2) — reescrita a partir da unit REAL coletada em 09/11/2026.
+# Certidões de nascimento: projeto/grupo -> tarefa no negócio do cliente.
+#
+# Mantido do real: ExecStart=certidoes-rodar.sh, WorkingDirectory=/opt/agente-separador,
+#   log em certidoes.log (append; ganha rotação em deploy/logrotate/), timeout 900 s.
+# O certidoes-rodar.sh (Frente X, CE-05) já trava /var/lock/triagem-bitrix-certidoes.lock
+#   e propaga o exit real — por isso SEM flock na unit (PT-02).
+# Real: After=triagem-bitrix.service (não aparece na coleta) → trocado pelo bot.
+[Unit]
+Description=Certidoes de nascimento: projeto/grupo -> tarefa no negocio do cliente
+After=network-online.target triagem-bitrix-bot.service
+Wants=network-online.target
+OnFailure=triagem-alerta@%n.service
+
+[Service]
+Type=oneshot
+User=triagem
+Group=triagem
+WorkingDirectory=/opt/agente-separador
+Environment=PYTHONUNBUFFERED=1
+Environment=TRIAGEM_BASE=/opt/triagem-bitrix
+EnvironmentFile=/etc/triagem-bitrix/env
+ExecStart=/opt/triagem-bitrix/certidoes-rodar.sh
+TimeoutStartSec=900
+StandardOutput=append:/opt/triagem-bitrix/certidoes.log
+StandardError=append:/opt/triagem-bitrix/certidoes.log
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=1G
+# Hardening (S08)
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# ↑ alvo da FASE 2. Na fase 1 o drop-in migracao-fase1.conf põe ProtectHome=read-only:
+# com `yes` o /root some até para root e o node (/root/.hermes/node, TRIAGEM_NODE) e os
+# segredos legados em /root ficam inacessíveis (F2-02).
+ReadWritePaths=/opt/triagem-bitrix /opt/agente-separador/data /var/lock

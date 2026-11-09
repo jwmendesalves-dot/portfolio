@@ -1,0 +1,102 @@
+id	relatorio	severidade	titulo
+S01	01	CRITICA	Senha gov.br / Meu INSS do cliente é extraída e replicada em estado, backups e fila sem proteção
+S02	01	CRITICA	Credencial de cliente (e-mail + senha) e CPFs válidos hardcoded no código e nos testes
+S03	01	CRITICA	Telegram: `chats_permitidos=[]` libera QUALQUER pessoa para mandar arquivo ao bot, e o arquivo entra na produç
+S04	01	ALTA	CPF, nome do cliente e nome original dos arquivos vão para o journal e para o `ponte.log` a cada 5 min
+S05	01	ALTA	Retenção inexistente: 1.833 cópias do estado com CPF, senha e mensagens (27 GB), mais os backups da fila
+S06	01	ALTA	O webhook do Bitrix (usuário 1, provável admin) é descoberto varrendo arquivos de outros projetos, e uma das f
+S07	01	ALTA	Webhook completo (com a chave) escrito no log quando um candidato falha
+S08	01	ALTA	Todos os serviços rodam como root, sem permissão restrita nos arquivos com dados pessoais
+S09	01	ALTA	Script JS gravado em `/tmp` com nome fixo e executado pelo node como root
+S10	01	MEDIA	Extensão do arquivo não é validada: qualquer tipo vai para `lotes/` e para o staging do worker
+S11	01	MEDIA	`completar_cpf_por_nome` atribui CPF por homônimo sem paginar o CRM e libera o lote direto para a produção
+S12	01	MEDIA	`certidoes.py`: webhook no argv do `curl` (visível no `ps`), parâmetros sem URL-encode e sem timeout
+S13	01	MEDIA	`certidoes.py` manda o X-Api-Key para qualquer URL devolvida pela API
+S14	01	BAIXA	Download inteiro em memória e sem teto de tamanho
+F1-01	02	CRITICA	O "cursor por chat" é gravado mas nunca lido: cada ciclo relê e reagrupa a janela inteira (2.000 msgs no webho
+F1-02	02	CRITICA	Janela deslizante gera lotes-fragmento novos a cada ciclo (lote_id muda) → origem principal dos lotes vazios/B
+F1-03	02	ALTA	Cada ciclo SOBRESCREVE o registro inteiro do lote e apaga o que outros scripts gravaram (CPF por nome, descart
+F1-04	02	ALTA	Backup `estado.json.bak-*` sem retenção: a linha que cria está em `completar_cpf_por_nome.py:140-141`, e o gat
+F1-05	02	ALTA	Barreira de identidade dispara com "nome" tirado de conversa ("bom dia", "Segue documentos") e corta o kit do 
+F1-06	02	ALTA	`fonte_leitura="webhook"`: sem failover para a API, sem breaker, ignora `historico_paginas`, e o bot lê por OU
+F1-07	02	MEDIA	`modo_traco`: o config diz que a decisão do dono é `grupo_autor`, mas roda `delimitador`, e o resultado depend
+F1-08	02	MEDIA	Gravação do `estado.json`: 4 escritores fora da trava, `.tmp` de nome fixo, e estado corrompido vira "estado v
+F1-09	02	MEDIA	CPF com pontuação é aceito sem checar dígito verificador, e CPF digitado errado vira âncora, CONFLITO ou barre
+F1-10	02	MEDIA	Varredura de vencidos marca `pronto=False`, enquanto o mesmo status no agrupador é `pronto=True`: kit some sem
+F1-11	02	MEDIA	Perda e releitura de mensagens: limites concretos
+F1-12	02	BAIXA	`completar_cpf_por_nome` grava CPF formatado, enquanto a fase 1 grava 11 dígitos
+F1-13	02	BAIXA	Funções gigantes e exceções engolidas que mudam comportamento
+A1	03	CRITICA	Três gravadores do pipeline de 10 min fazem ler-modificar-gravar no estado.json SEM trava (atualização perdida
+A2	03	ALTA	O tmp com nome fixo `estado.json.tmp`, compartilhado por vários processos, pode gerar JSON corrompido. Com ele
+A3	03	ALTA	O ciclo do triagem_grupo substitui o registro INTEIRO do lote e apaga campos gravados por outros processos
+A4	03	ALTA	Dois `lote_para_fila --enviar` concorrentes: o flock existe só na ponte e o arquivo de entradas é fixo em /tmp
+A5	03	MEDIA	download_fila.json: sem trava entre processos, sem fsync e sem dedupe de file_id
+B1	03	ALTA	O disjuntor de download do Bitrix também bloqueia o fallback VibeCode
+B2	03	MEDIA	O disjuntor é aberto por QUALQUER chamada ao Bitrix, inclusive pela leitura de mensagens, e pausa os downloads
+B3	03	ALTA	"Aberto desde 13:06": o arquivo nunca é fechado nem limpo, e quem mais martela o portal ignora o disjuntor
+B4	03	BAIXA	Half-open sem sonda única; `chamar` conta qualquer exceção como falha da fonte
+C1	03	MEDIA	Nenhum filtro de tipo na entrada: áudio e vídeo viram anexo de lote (e a ponte aceita)
+C2	03	ALTA	O Telegram não checa o limite de 20 MB antes do getFile; o erro não é permanente e volta a cada 10 min por out
+D1	03	ALTA	baixar_pendentes não tem memória de tentativas nem distingue erro permanente de transitório
+D2	03	MEDIA	O backoff do download_svc está em segundos, mas a fila só roda uma vez por ciclo; depois de 5 ciclos o item vi
+D3	03	BAIXA	`baixar_arquivo` retenta a MESMA URL assinada e não renova o link
+E1	03	ALTA	`.parcial` órfão faz o baixar_pendentes pular o arquivo PARA SEMPRE
+E2	03	ALTA	O download do Telegram grava direto no destino (sem .part) e reaproveita arquivo truncado como "baixado"
+E3	03	ALTA	Dois anexos com o mesmo nome no lote: o segundo "reaproveita" o primeiro e o documento some
+E4	03	MEDIA	`.part` do download_svc não é filtrado pelos reconciliadores; não há checagem de tamanho, de 0 byte nem fsync
+E5	03	MEDIA	reconciliar_por_file_ids associa arquivos sem índice aos file_ids pela ORDEM ALFABÉTICA e descarta metas de er
+G1	03	MEDIA	baixar_pendentes e download_svc não têm a guarda de DNS nem limite total; podem pendurar o timer de 10 min
+G2	03	BAIXA	Pool de 8 threads da guarda de DNS esgota com conexões penduradas
+H1	03	BAIXA	esperar_bot_liberar.py manda mensagem REAL no grupo de clientes a cada 2 min como teste
+H2	03	BAIXA	vigia-bot-triagem: transfere o bot para a chave que a própria resposta de erro indica
+F2-01	04	ALTA	`pipeline.sh` enfileira sem a regra do escritório, sem corte de data, sem limite e sem trava
+F2-02	04	ALTA	Kit com download incompleto é enfileirado parcial e o resto nunca mais é enviado
+F2-03	04	ALTA	Dedup descarta como "duplicata" lote cujo download está incompleto
+F2-04	04	ALTA	Bloqueio na cabeça da fila: limite aplicado antes de saber se o lote é enviável; LOTE-SIG sempre por último
+F2-05	04	MEDIA	Duas instâncias da ponte em paralelo: perda de atualização no controle e reenvio
+F2-06	04	MEDIA	Falha no meio deixa staging órfão e controle apontando para upload_id errado
+F2-07	04	MEDIA	Monitor nunca fica em silêncio: 503 descartados + todo `requer_revisao` reavisados a cada 30 min; "pronto" > 7
+F2-08	04	MEDIA	Kit repetido + 1 documento novo reenvia o kit inteiro; dedup é contra a união de todo o histórico do CPF
+F2-09	04	MEDIA	`lote_para_job.py` ("simular a ponte") diverge da ponte real e faz rede
+F2-10	04	BAIXA	Job real sai com histórico "SIMULAÇÃO — não gravado" e sidecar com `id` vazio
+F2-11	04	BAIXA	`dividir_lote_misto.py` cria sub-lote pronto sem mexer no pai — risco de envio duplo
+F2-12	04	BAIXA	Robustez menor
+ID-01	05	CRITICA	`completar_cpf_por_nome` libera o lote para a ponte e apaga TODOS os motivos de revisão
+ID-02	05	ALTA	"Exatamente 1 contato" é falso: a busca lê só a 1ª página (50) e filtra pelo 1º nome
+ID-03	05	ALTA	`completar_cpf_por_nome` grava o `estado.json` inteiro sem a trava do `estado_store` (perde atualizações)
+ID-04	05	ALTA	O ciclo de 10 min consulta o Bitrix de novo para cada lote SEM_CPF, sem cache de resultado negativo
+ID-05	05	MEDIA	Nenhum dos caminhos laterais valida o dígito verificador do CPF
+AUX-01	05	MEDIA	Scripts de reparo pontual continuam na pasta de produção, gravam o estado sem trava e um deles não é idempoten
+AUX-02	05	BAIXA	`nomear_lotes_por_cpf`: pega o 1º contato sem conferir se é único e guarda "não achei" para sempre
+CE-01	05	ALTA	Certidões: falha marca a mensagem como processada e uma queda no meio da rodada duplica tarefas
+CE-02	05	ALTA	Certidões: foto da certidão é tratada como PDF e a IA nunca lê
+CE-03	05	ALTA	Certidões: busca por nome sem garantia de unicidade, com o nome da criança e o "1º negócio" qualquer do contat
+CE-04	05	MEDIA	Certidões: o filtro do grupo pega certidão de casamento e lê só 50 mensagens
+CE-05	05	BAIXA	Certidões: arquivos em /tmp com PII que nunca são apagados, webhook visível no `ps` e código de saída sempre 0
+PL-01	05	ALTA	Pintura: o cliente novo é escrito numa "linha livre" sem conferir na hora de gravar (pode sobrescrever a linha
+PL-02	05	MEDIA	Pintura: lê a planilha inteira a cada 2 min, mesmo quando tudo já foi pintado
+PL-03	05	MEDIA	Pintura: CPF errado gera linha nova e a marcação por CPF é para sempre
+PT-01	05	ALTA	Bot do traço: timeout de rede depois do envio leva a reenvio a cada 8 s (spam); disco cheio também
+PT-02	05	MEDIA	Bot do traço: trava de instância só no `--loop`; o `pergunta-rodar.sh` roda sem trava
+PT-03	05	BAIXA	Bot do traço: `ignorar_autores` compara pelo nome exibido
+PT-04	05	BAIXA	Bot do traço: o disparo da esteira descarta stdout e stderr
+TG-01	05	MEDIA	Telegram: a lista de chats permitidos lida pelo código não é a que está no config
+TG-02	05	MEDIA	Telegram: a memória de lotes recria lotes apagados de propósito e cresce sem limite
+TG-03	05	BAIXA	Telegram: o "Recebido" é enviado antes de o lote ser gravado
+ID-09	05	BAIXA	Código de produção depende de um script manual que dá `SystemExit` na importação
+NR-01	05	BAIXA	`nome_regras`: casamento por nome é conservador por desenho e não trata partículas nem abreviações
+OP-T1	06	ALTA	Suíte presa ao servidor: 31 arquivos de teste com `/opt/triagem-bitrix` fixo
+OP-T2	06	ALTA	Testes leem o `estado.json` de PRODUÇÃO (não herméticos, com dados pessoais)
+OP-T3	06	MEDIA	`nomear_lotes_por_cpf` resolve o webhook NO IMPORT e mata o processo
+OP-T4	06	BAIXA	Teste que executa o `main()` real em produção e grava arquivo
+OP-T5	06	BAIXA	Testes "embutidos" fora do pytest (~970 linhas em produção)
+OP-C1	06	ALTA	Escritores do `estado.json` sem trava e sem teste competem com o ciclo
+OP-C2	06	MEDIA	`estado_store.ler_estado` devolve `{}` em erro e `atualizar_estado` grava por cima
+OP-O1	06	ALTA	`estado.json.bak-*` (1.833 arquivos, 27 GB) — quem gera
+OP-O2	06	MEDIA	`backups/` (737 MB) — `fila-jobs-<data>.json` a cada envio
+OP-O3	06	MEDIA	Logs sem rotação: `ponte.log` (208 MB), `pergunta.log`, `certidoes.log`
+OP-O4	06	MEDIA	Scripts escondem falha do systemd
+OP-O5	06	ALTA	`baixar_pendentes.py` ignora o circuit-breaker e o tipo de mídia
+OP-E1	06		`triagem_grupo.py` (4.116 linhas, 89 funções) — divisão proposta
+OP-E2	06	BAIXA	Código morto / problemas do pyflakes+vulture (confirmados por grep em todo o repo)
+OP-E3	06		Scripts one-off na raiz (mesmo nível dos serviços)

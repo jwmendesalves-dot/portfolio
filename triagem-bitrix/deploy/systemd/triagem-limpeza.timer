@@ -1,0 +1,10 @@
+# /etc/systemd/system/triagem-limpeza.timer
+# PROPOSTA (Frente H, S05) — conferir no servidor. Janela fora do pico de produção.
+[Timer]
+OnCalendar=*-*-* 04:15:00
+RandomizedDelaySec=10min
+Persistent=true
+Unit=triagem-limpeza.service
+
+[Install]
+WantedBy=timers.target

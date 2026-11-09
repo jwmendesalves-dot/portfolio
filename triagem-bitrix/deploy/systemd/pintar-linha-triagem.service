@@ -1,0 +1,41 @@
+# /etc/systemd/system/pintar-linha-triagem.service
+# PROPOSTA (Frente H/H2) — reescrita a partir da unit REAL coletada em 09/11/2026.
+# Pinta de ROXO a linha do cliente que mandou documentos no grupo (planilha PASTAS PREVI GERAL).
+#
+# Mantido do real: Python da venv do qc-planilha (/opt/qc-planilha/venv/bin/python — traz a
+#   Google API; NÃO trocar por /usr/bin/python3), --aplicar, log em pintura.log, 180 s, Nice=10.
+# Novo: flock inline (/var/lock/pintar-linha-triagem.lock) — duas rodadas não gravam a
+#   "linha livre" ao mesmo tempo. O script não trava sozinho, então não há aninhamento.
+#   Trava ocupada = rodada anterior ainda pintando → `-E 0`: PULA com exit 0 (sem alerta).
+[Unit]
+Description=Triagem: pinta de ROXO a linha do cliente que mandou documentos no grupo (planilha PASTAS PREVI GERAL)
+Documentation=file:/opt/triagem-bitrix/pintar_linha.py
+After=network-online.target
+Wants=network-online.target
+OnFailure=triagem-alerta@%n.service
+
+[Service]
+Type=oneshot
+User=triagem
+Group=triagem
+WorkingDirectory=/opt/triagem-bitrix
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/etc/triagem-bitrix/env
+ExecStart=/usr/bin/flock -n -E 0 /var/lock/pintar-linha-triagem.lock /opt/qc-planilha/venv/bin/python /opt/triagem-bitrix/pintar_linha.py --aplicar
+StandardOutput=append:/opt/triagem-bitrix/pintura.log
+StandardError=append:/opt/triagem-bitrix/pintura.log
+TimeoutStartSec=180
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=512M
+# Hardening (S08) — /opt/qc-planilha fica só leitura (venv); credencial em
+# /opt/agente-separador/service-account.json (leitura).
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# ↑ alvo da FASE 2. Na fase 1 o drop-in migracao-fase1.conf põe ProtectHome=read-only:
+# com `yes` o /root some até para root e o node (/root/.hermes/node, TRIAGEM_NODE) e os
+# segredos legados em /root ficam inacessíveis (F2-02).
+ReadWritePaths=/opt/triagem-bitrix /opt/agente-separador/data /var/lock

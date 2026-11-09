@@ -1,0 +1,43 @@
+# /etc/systemd/system/triagem-bitrix-ponte.service
+# PROPOSTA (Frente H/H2) — reescrita a partir da unit REAL coletada em 09/11/2026.
+# Ponte fase 2: lote pronto do grupo -> fila do painel (uma rodada).
+#
+# Mantido do real: ExecStart=ponte-rodar.sh, WorkingDirectory=/opt/agente-separador,
+#   log em ponte.log (append; rotação copytruncate em deploy/logrotate/), timeout 900 s.
+# Mudou: trava. O ponte-rodar.sh remediado trava /opt/triagem-bitrix/fila.lock — a MESMA
+#   do triagem-lote-fila (passo 5) e do lote_para_fila.py por dentro. Sem flock na unit:
+#   o wrapper já trava; envolvê-lo faria a rodada pular sempre (PT-02).
+#   Exige `flock` (util-linux): sem ele o wrapper sai 2 → OnFailure.
+# Real: After=triagem-bitrix.service (unit que não aparece na coleta) → trocado pelo bot.
+[Unit]
+Description=Ponte fase 2: lote pronto do grupo -> fila do painel (uma rodada)
+After=network-online.target triagem-bitrix-bot.service
+Wants=network-online.target
+OnFailure=triagem-alerta@%n.service
+
+[Service]
+Type=oneshot
+User=triagem
+Group=triagem
+WorkingDirectory=/opt/agente-separador
+Environment=PYTHONUNBUFFERED=1
+Environment=TRIAGEM_BASE=/opt/triagem-bitrix
+EnvironmentFile=/etc/triagem-bitrix/env
+ExecStart=/opt/triagem-bitrix/ponte-rodar.sh
+TimeoutStartSec=900
+StandardOutput=append:/opt/triagem-bitrix/ponte.log
+StandardError=append:/opt/triagem-bitrix/ponte.log
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+MemoryMax=1G
+# Hardening (S08)
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# ↑ alvo da FASE 2. Na fase 1 o drop-in migracao-fase1.conf põe ProtectHome=read-only:
+# com `yes` o /root some até para root e o node (/root/.hermes/node, TRIAGEM_NODE) e os
+# segredos legados em /root ficam inacessíveis (F2-02).
+ReadWritePaths=/opt/triagem-bitrix /opt/agente-separador/data /var/lock

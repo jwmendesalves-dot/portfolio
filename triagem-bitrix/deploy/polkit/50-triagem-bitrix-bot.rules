@@ -1,0 +1,20 @@
+// /etc/polkit-1/rules.d/50-triagem-bitrix-bot.rules — FASE 2 (F2-08). Instalar com
+//   install -m 0644 deploy/polkit/50-triagem-bitrix-bot.rules /etc/polkit-1/rules.d/
+// Substitui o antigo deploy/sudoers/triagem-bitrix: com NoNewPrivileges=yes o sudo (setuid)
+// não eleva, e o vigia_bot.sh chama `systemctl restart` SEM sudo. O systemctl de usuário
+// comum pede autorização ao systemd por D-Bus/polkit (sem setuid) — funciona com
+// NoNewPrivileges. Só o usuário `triagem`, só start/restart, só o bot.
+// Exige polkit ≥ 0.106 (regras .rules em JS): conferir `pkaction --version` no servidor.
+// Polkit 0.105 (.pkla) não filtra por unit — nesse caso NÃO migrar o vigia para triagem
+// (deixar o drop-in User=root só nele) e registrar na ata.
+// Teste (como triagem): sudo -u triagem systemctl restart triagem-bitrix-bot  → sem prompt.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        subject.user == "triagem" &&
+        action.lookup("unit") == "triagem-bitrix-bot.service") {
+        var verb = action.lookup("verb");
+        if (verb == "restart" || verb == "start") {
+            return polkit.Result.YES;
+        }
+    }
+});

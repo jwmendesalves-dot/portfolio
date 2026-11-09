@@ -1,0 +1,47 @@
+{
+  "_comentario": "sinal_traco: caracteres aceitos como sinal (traco). modo_traco em uso = 'delimitador' (o traco fecha o bloco de cima e abre o de baixo; coerente com o bot do traco). Historico: em 21/09/2026 a decisao registrada foi 'grupo_autor' (o traco ABRE para o grupo e so FECHA com o traco de QUEM ABRIU); outros valores: 'grupo' (qualquer traco abre/fecha) e 'autor' (legado, cada pessoa com o seu). traco_vigencia_min: se ninguem fechar o bloco, o traco de OUTRA pessoa assume depois desse tempo (0 = desliga). toggle_por_autor: legado, so usado quando 'modo_traco' nao existe. timeout_lote_min: lote aberto sem o traco de fechamento fecha sozinho. janela_min_fallback: agrupamento por autor+tempo para o que esta FORA de um bloco (so fallback). fonte_leitura em uso = 'webhook' (Bitrix im.dialog.messages.get com cursor FIRST_ID); medicao de 09/11/2026 em 48h: webhook e API do VibeCode viram exatamente as mesmas mensagens (247/247 e 269/269). 'api' = API do VibeCode. Valor invalido agora PARA o ciclo com erro (nao cai em silencio para outro modo). historico_paginas: quantas paginas de 50 mensagens sao lidas por ciclo. dialog_ids: LISTA de grupos monitorados (cada um agrupado separadamente); dialog_id (singular) continua valendo para testes com um só. barreira_identidade (22/09/2026): true = documento/identificador de OUTRA pessoa dentro de um bloco aberto por traço INTERROMPE o bloco (fechado sem traço, nunca vai para a triagem) e o material do novo cliente segue sozinho — pedido do dono: 'garantir que não ocorra inserção de documentos de outras pessoas'.",
+  "sinal_traco": [
+    "-",
+    "–",
+    "—",
+    "=",
+    "_"
+  ],
+  "modo_traco": "delimitador",
+  "traco_vigencia_min": 30,
+  "toggle_por_autor": false,
+  "timeout_lote_min": 120,
+  "janela_min_fallback": 30,
+  "fonte_leitura": "webhook",
+  "historico_paginas": 12,
+  "barreira_identidade": true,
+  "dialog_id": null,
+  "bot_id": 100003,
+  "dialog_ids": [
+    "chat100001",
+    "chat100002"
+  ],
+  "pergunta_traco": {
+    "ativo": true,
+    "chats": [
+      "chat100002",
+      "chat100001"
+    ],
+    "bot_id": 100003,
+    "ignorar_autores": [
+      "Triagem de Documentos Bot"
+    ],
+    "so_recentes_min": 15,
+    "modo": "abre_fecha"
+  },
+  "traco_telegram": "/start",
+  "telegram": {
+    "habilitado": true,
+    "token_file": "/root/.telegram/documentosexemplo.token",
+    "bots": [
+      "@documentosexemploBot"
+    ],
+    "chats_permitidos": [],
+    "obs": "24/09/2026: canal de ENVIO dos documentos pelo privado do bot; /start = traço; agrupamento por chat (cada pessoa é uma esteira); modo_traco=delimitador"
+  }
+}

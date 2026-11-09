@@ -1,0 +1,35 @@
+# /etc/logrotate.d/triagem-bitrix — PROPOSTA (Frente H, OP-O3/S04)
+# Copiar: install -m 0644 deploy/logrotate/triagem-bitrix /etc/logrotate.d/triagem-bitrix
+# Validar: logrotate -d /etc/logrotate.d/triagem-bitrix   (só no servidor; não existe no macOS)
+#
+# copytruncate é OBRIGATÓRIO aqui: o vigia do bot (vigia_bot.sh) decide "bot mudo" pelo
+# MTIME do pergunta.log. Uma rotação por rename/create deixaria um arquivo novo vazio
+# (mtime novo = vigia satisfeito enquanto o bot continua mudo) e o processo do bot
+# continuaria escrevendo no inode antigo (log perdido). copytruncate copia e trunca o
+# MESMO arquivo: mtime volta a andar a cada escrita real do processo.
+#
+# Conferir no servidor: dono/mode reais dos logs (hoje: root, se as units rodam como root;
+# triagem:triagem depois da migração — `su` abaixo acompanha; ajustar em uma linha).
+
+/opt/triagem-bitrix/ponte.log
+/opt/triagem-bitrix/pergunta.log
+/opt/triagem-bitrix/certidoes.log
+/opt/triagem-bitrix/pintar-linha.log
+/opt/triagem-bitrix/pergunta-disparo.log
+/opt/triagem-bitrix/vigia-bot-ultimo.txt {
+    daily
+    rotate 14
+    maxsize 20M
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su root root
+}
+
+# triagem.log JÁ tem rotação própria no código (RotatingFileHandler 2 MB x 5 em
+# triagem_grupo.py:220) — não incluir aqui para não dobrar a rotação.
+# Nota S04 (dono do código): nome + CPF de cliente em log deve sair do conteúdo
+# (máscara via seguranca.instalar_filtro_log); o logrotate limita retenção, não conteúdo.
+# TODO orquestrador: definir MaxRetentionSec no journald.conf para o journal.

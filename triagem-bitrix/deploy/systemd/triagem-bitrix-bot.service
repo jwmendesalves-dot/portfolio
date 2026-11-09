@@ -1,0 +1,61 @@
+# /etc/systemd/system/triagem-bitrix-bot.service
+# PROPOSTA (Frente H/H2) — **COLETAR ANTES DO DEPLOY.** A coleta de 09/11/2026 confirmou
+# que existe um triagem-bitrix-bot.service contínuo (o vigia real tem
+# After=triagem-bitrix-bot.service), mas o ExecStart dele NÃO foi coletado. Antes de
+# instalar este arquivo: `systemctl cat triagem-bitrix-bot.service` no servidor e
+# comparar ExecStart/WorkingDirectory/User/Restart com o abaixo; divergência = ajustar
+# aqui (a unit real manda). O ExecStart abaixo é hipótese (bot do traço em --loop 8).
+#
+# triagem-bitrix-pergunta.{service,timer} (rodada única "TESTE", 1 min, pergunta-rodar.sh)
+# existe em /etc/systemd/system mas está INATIVO (fora do list-timers). MANTER
+# DESATIVADO: com este serviço --loop ativo os dois brigam pela trava (o 2º sai 75).
+# Bot do traço (bot NATIVO do Bitrix, ID 100003 — NÃO é o Telegram legado):
+# pergunta_traco.py --ativo --loop 8 (escreve pergunta.log a cada ~8 s; o vigia depende
+# desse mtime — por isso a rotação do log é copytruncate, ver deploy/logrotate/).
+#
+# UM MODO SÓ (aviso PT-02): ou este serviço --loop, OU o timer que roda
+# pergunta-rodar.sh (rodada única) — nunca os dois. A trava de instância única é do
+# próprio pergunta_traco.py (pergunta-traco.lock); ocupada ele sai 75.
+# Por isso: SuccessExitStatus=75 e RestartPreventExitStatus=75 — senão o
+# Restart=on-failure reiniciaria em laço contra uma segunda instância.
+[Unit]
+Description=Triagem: bot do traço (Bitrix bot 100003) — modo loop
+After=network-online.target
+Wants=network-online.target
+OnFailure=triagem-alerta@%n.service
+
+[Service]
+Type=simple
+User=triagem
+Group=triagem
+WorkingDirectory=/opt/triagem-bitrix
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/etc/triagem-bitrix/env
+ExecStart=/usr/bin/python3 /opt/triagem-bitrix/pergunta_traco.py --ativo --loop 8
+# F2-05: o vigia_bot.sh mede o mtime de $BASE/pergunta.log (LOG=${LOG:-$BASE/pergunta.log}).
+# pergunta_traco.py NÃO abre esse arquivo — ele só existe pela redireção `>> pergunta.log`
+# (pergunta-rodar.sh). Sem estas duas linhas a saída vai pro journal, o mtime congela e o
+# vigia reinicia o bot a cada 3-5 min sem fim. No C2 comparar também a redireção real.
+StandardOutput=append:/opt/triagem-bitrix/pergunta.log
+StandardError=append:/opt/triagem-bitrix/pergunta.log
+Restart=on-failure
+RestartSec=30
+SuccessExitStatus=75
+RestartPreventExitStatus=75
+TimeoutStopSec=30
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=512M
+# Hardening (S08)
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# ↑ alvo da FASE 2. Na fase 1 o drop-in migracao-fase1.conf põe ProtectHome=read-only:
+# com `yes` o /root some até para root e o node (/root/.hermes/node, TRIAGEM_NODE) e os
+# segredos legados em /root ficam inacessíveis (F2-02).
+ReadWritePaths=/opt/triagem-bitrix /var/lock
+# Migração (PLANO-IMPLANTACAO.md): com User=triagem, o pergunta_traco não pode mais
+# reiniciar serviços; a auto-recuperação fica com o vigia (regra polkit em deploy/polkit/) e, no
+# futuro, WatchdogSec + sd_notify (TODO orquestrador).

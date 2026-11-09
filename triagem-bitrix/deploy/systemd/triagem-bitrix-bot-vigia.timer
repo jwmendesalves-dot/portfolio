@@ -1,0 +1,17 @@
+# /etc/systemd/system/triagem-bitrix-bot-vigia.timer
+# PROPOSTA (Frente H/H2). Real: OnBootSec=3min, OnUnitActiveSec=2min, AccuracySec=15s,
+# Requires=triagem-bitrix-bot-vigia.service. Limite do vigia = 3 min sem escrita no
+# pergunta.log; a cada 2 min detecta em ~3-5 min. O `Requires=` real foi retirado: ele
+# faz o timer arrastar o service no start/stop do timer (não é necessário com Unit=).
+[Unit]
+Description=Vigia do bot da triagem a cada 2 minutos
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=2min
+AccuracySec=15s
+Persistent=false
+Unit=triagem-bitrix-bot-vigia.service
+
+[Install]
+WantedBy=timers.target

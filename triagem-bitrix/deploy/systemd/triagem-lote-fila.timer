@@ -1,0 +1,13 @@
+# /etc/systemd/system/triagem-lote-fila.timer
+# PROPOSTA (Frente H, OP-O4) — conferir no servidor.
+# OnUnitInactiveSec: a contagem recomeça no FIM da rodada anterior: nunca empilha rodadas
+# (uma rodada lenta atrasa a seguinte em vez de sobrepor; a trava é a segunda defesa).
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=10min
+RandomizedDelaySec=30
+Persistent=false
+Unit=triagem-lote-fila.service
+
+[Install]
+WantedBy=timers.target

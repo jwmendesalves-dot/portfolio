@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.bak-*
+*.tmp
+.env
+*.key
+*.token
+estado.json
+download_fila.json
+fila-enviados.json
+lotes/
+backups/
+*.log

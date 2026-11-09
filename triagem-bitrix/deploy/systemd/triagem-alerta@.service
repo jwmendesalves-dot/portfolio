@@ -1,0 +1,28 @@
+# /etc/systemd/system/triagem-alerta@.service
+# PROPOSTA (Frente H, OP-O4) — conferir no servidor. Template ativado por
+# `OnFailure=triagem-alerta@%n.service` em cada unit de serviço. A instância recebe o
+# nome da unit que falhou (%i).
+#
+# O destino da alerta (Telegram legado desativado; bot Bitrix? e-mail? webhook?) é
+# TODO orquestrador — hoje só journal + ALERTA_CMD do EnvironmentFile (/etc/triagem-bitrix/env).
+[Unit]
+Description=Triagem: alerta de falha de %i
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=triagem
+Group=triagem
+EnvironmentFile=/etc/triagem-bitrix/env
+ExecStart=/opt/triagem-bitrix/deploy/bin/alertar-falha.sh %i
+TimeoutStartSec=2min
+Nice=10
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# ↑ alvo da FASE 2. Na fase 1 o drop-in migracao-fase1.conf põe ProtectHome=read-only:
+# com `yes` o /root some até para root e o node (/root/.hermes/node, TRIAGEM_NODE) e os
+# segredos legados em /root ficam inacessíveis (F2-02).
+ReadWritePaths=/opt/triagem-bitrix

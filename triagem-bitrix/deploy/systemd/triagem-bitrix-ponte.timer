@@ -1,0 +1,11 @@
+# /etc/systemd/system/triagem-bitrix-ponte.timer
+# PROPOSTA (Frente H, OP-O4) — conferir no servidor.
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+RandomizedDelaySec=20
+Persistent=false
+Unit=triagem-bitrix-ponte.service
+
+[Install]
+WantedBy=timers.target

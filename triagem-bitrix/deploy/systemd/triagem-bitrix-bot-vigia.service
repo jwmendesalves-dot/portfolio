@@ -1,0 +1,35 @@
+# /etc/systemd/system/triagem-bitrix-bot-vigia.service
+# PROPOSTA (Frente H/H2) — reescrita a partir da unit REAL coletada em 09/11/2026
+# (nome real: triagem-bitrix-bot-vigia; a proposta antiga chamava triagem-bot-vigia).
+# Vigia do bot da triagem: se pergunta.log não é escrito há >= 3 min, reinicia
+# triagem-bitrix-bot (vigia_bot.sh). Sem lock: lê o mtime e chama systemctl.
+# Mantido do real: ExecStart=/bin/bash vigia_bot.sh, After=triagem-bitrix-bot.service.
+# Fase 2 (User=triagem): o vigia_bot.sh chama `systemctl restart` SEM sudo, e
+# NoNewPrivileges=yes impede sudo (setuid) de elevar — por isso NÃO há sudoers (F2-08).
+# A autorização vem da regra polkit deploy/polkit/50-triagem-bitrix-bot.rules (D-Bus, sem
+# setuid: compatível com NoNewPrivileges), restrita a start/restart do
+# triagem-bitrix-bot.service pelo usuário triagem. Na fase 1 (drop-in User=root) nada muda.
+[Unit]
+Description=Vigia do bot da triagem (reinicia se o log parar de crescer)
+After=triagem-bitrix-bot.service
+OnFailure=triagem-alerta@%n.service
+
+[Service]
+Type=oneshot
+User=triagem
+Group=triagem
+WorkingDirectory=/opt/triagem-bitrix
+EnvironmentFile=/etc/triagem-bitrix/env
+ExecStart=/bin/bash /opt/triagem-bitrix/vigia_bot.sh
+TimeoutStartSec=60s
+Nice=10
+IOSchedulingClass=idle
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# ↑ alvo da FASE 2. Na fase 1 o drop-in migracao-fase1.conf põe ProtectHome=read-only:
+# com `yes` o /root some até para root e o node (/root/.hermes/node, TRIAGEM_NODE) e os
+# segredos legados em /root ficam inacessíveis (F2-02).
+ReadWritePaths=/opt/triagem-bitrix

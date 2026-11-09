@@ -1,0 +1,53 @@
+# /etc/systemd/system/triagem-lote-fila.service
+# PROPOSTA (Frente H/H2) — reescrita a partir da unit REAL coletada em 09/11/2026
+# (SERVIDOR-COLETA-20261109.md §2).
+#
+# ANTES (real): 5 ExecStart= em cadeia (baixar_pendentes → reconciliar_estado →
+#   reconciliar_por_file_ids --aplicar --dias 7 → completar_cpf_por_nome --aplicar →
+#   lote_para_fila --enviar --todos --limite 15), sem trava, root, journal.
+#   Num oneshot, um passo ≠ 0 corta os seguintes → regressão com o código que agora
+#   devolve 1/2 de verdade.
+# DEPOIS: ExecStart ÚNICO (deploy/bin/lote-fila.sh) que roda os 5 passos sempre e devolve
+#   o PIOR código. O passo 5 entra pelo ponte-rodar.sh → MESMA trava da ponte
+#   (/opt/triagem-bitrix/fila.lock). NÃO envolver em flock aqui (PT-02).
+# pipeline.sh NÃO é equivalente (F2-10): é o pipeline MANUAL — ponte com o limite padrão
+#   do ponte-rodar.sh (4, não 15), passo 4 sem o mesmo controle e SEM timeout por passo.
+#   Não usar como ExecStart desta unit.
+[Unit]
+Description=Triagem: baixa pendentes, reconcilia estado, completa CPF por nome e enfileira lotes prontos
+Documentation=file:/opt/triagem-bitrix/deploy/bin/lote-fila.sh
+After=network-online.target triagem-bitrix-bot.service
+Wants=network-online.target
+OnFailure=triagem-alerta@%n.service
+
+[Service]
+Type=oneshot
+# MIGRAÇÃO (PLANO-IMPLANTACAO.md): a unit real roda como root (sem User=). Fase 1 usa o
+# drop-in /etc/systemd/system/triagem-lote-fila.service.d/migracao.conf com `User=root`
+# (remover na fase 2) em vez de editar este arquivo.
+User=triagem
+Group=triagem
+WorkingDirectory=/opt/triagem-bitrix
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/etc/triagem-bitrix/env
+ExecStart=/opt/triagem-bitrix/deploy/bin/lote-fila.sh
+# real: 900 s. Soma dos timeouts por passo do lote-fila.sh = 420+120+120+120+900 = 1680 s
+# (28 min); 30 min cobre com folga. Mudou T_* no env? Recalcule aqui (≥ soma).
+TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+MemoryMax=1G
+StandardOutput=journal
+StandardError=journal
+# Hardening (S08)
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# ↑ alvo da FASE 2. Na fase 1 o drop-in migracao-fase1.conf põe ProtectHome=read-only:
+# com `yes` o /root some até para root e o node (/root/.hermes/node, TRIAGEM_NODE) e os
+# segredos legados em /root ficam inacessíveis (F2-02).
+# graváveis: caminhos.BASE (estado, fila.lock), caminhos.SEPARADOR/data (staging + fila)
+ReadWritePaths=/opt/triagem-bitrix /opt/agente-separador/data /var/lock

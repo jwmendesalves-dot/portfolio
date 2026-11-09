@@ -1,0 +1,39 @@
+# /etc/systemd/system/triagem-limpeza.service
+# PROPOSTA (Frente H, S05/OP-O1/OP-O2) — conferir no servidor.
+# Limpeza diária: poda de backups do estado e da fila + tmp órfãos do estado.
+# O script DEIXA SIMULAR por padrão; aqui roda com --aplicar (a simulação manual
+# continua o padrão para quem invoca na mão).
+#
+# NUNCA roda --descarte-seguro: os backups legados contêm senha de cliente (S01) e o
+# descarte deles exige autorização explícita — só manual, ver RUNBOOK-OPERACIONAL.md.
+# A trava do estado (mesmo arquivo de estado_store) serializa contra escritores; se
+# estiver ocupada por mais de 5 min, a limpeza desiste (flock -E 75, SuccessExitStatus=75:
+# sem failed/alerta) e o timer tenta amanhã.
+[Unit]
+Description=Triagem: limpeza diária de backups e tmp órfãos (S05)
+After=network-online.target
+Wants=network-online.target
+OnFailure=triagem-alerta@%n.service
+
+[Service]
+Type=oneshot
+User=triagem
+Group=triagem
+WorkingDirectory=/opt/triagem-bitrix
+EnvironmentFile=/etc/triagem-bitrix/env
+ExecStart=/usr/bin/flock -w 300 -E 75 /opt/triagem-bitrix/estado.json.lock /usr/bin/python3 /opt/triagem-bitrix/deploy/bin/podar-backups.py --aplicar --tmp-orfaos
+# trava do estado ocupada > 5 min → flock sai 75 = "desistiu, tenta amanhã" (não é falha)
+SuccessExitStatus=75
+TimeoutStartSec=15min
+Nice=19
+IOSchedulingClass=idle
+MemoryMax=512M
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# ↑ alvo da FASE 2. Na fase 1 o drop-in migracao-fase1.conf põe ProtectHome=read-only:
+# com `yes` o /root some até para root e o node (/root/.hermes/node, TRIAGEM_NODE) e os
+# segredos legados em /root ficam inacessíveis (F2-02).
+ReadWritePaths=/opt/triagem-bitrix /var/lock

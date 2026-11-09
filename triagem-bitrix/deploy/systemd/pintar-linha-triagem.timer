@@ -1,0 +1,11 @@
+# /etc/systemd/system/pintar-linha-triagem.timer
+# PROPOSTA (Frente H, OP-O4) — conferir no servidor.
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=2min
+RandomizedDelaySec=10
+Persistent=false
+Unit=pintar-linha-triagem.service
+
+[Install]
+WantedBy=timers.target
